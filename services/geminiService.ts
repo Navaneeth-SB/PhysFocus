@@ -1,53 +1,68 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { Message, Sender, Source } from '../types';
 
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY || '';
-
-const ai = new GoogleGenAI({ apiKey: apiKey });
+// We get the Groq key (using standard Vite env access)
+const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
 export const askPhysicsDoubt = async (
   question: string,
   history: Message[] = []
 ): Promise<{ text: string; sources: Source[] }> => {
   try {
-    // BACK TO THE ONLY MODEL THAT CONNECTED
-    // We know this works because you got a 429 error (which means it found the server!)
-    const model = 'gemini-2.0-flash-exp'; 
-    
-    let context = "";
-    if (history.length > 0) {
-      const recentHistory = history.slice(-3); // Only keep last 3 messages to save tokens
-      context = "Previous conversation:\n" + recentHistory.map(m => `${m.sender}: ${m.text}`).join('\n') + "\n\n";
+    if (!apiKey) {
+      return { text: "Configuration Error: VITE_GROQ_API_KEY is missing in Vercel.", sources: [] };
     }
 
-    const fullPrompt = `${context}Student's Question: ${question}`;
+    // Prepare context from previous messages
+    let messages = [
+        {
+            role: "system",
+            content: `You are an expert Physics Tutor for competitive exams (JEE, NEET). 
+            Provide concise, direct answers (max 2-3 sentences). 
+            Do NOT use LaTeX. Use standard symbols (e.g. *, x^2, theta). 
+            Focus strictly on physics concepts.`
+        }
+    ];
 
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: model,
-      contents: fullPrompt,
-      config: {
-        // Absolutely minimal config to prevent crashes
-        systemInstruction: "You are a concise Physics Tutor. No LaTeX. Use standard math symbols.",
-      }
+    // Add history (limit to last 4 to keep it fast)
+    history.slice(-4).forEach(msg => {
+        messages.push({
+            role: msg.sender === 'user' ? "user" : "assistant",
+            content: msg.text
+        });
     });
 
-    const text = response.text || "I couldn't find an answer.";
+    // Add the current question
+    messages.push({ role: "user", content: question });
+
+    // Send request to Groq (Llama 3 Model)
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        messages: messages,
+        model: "llama3-8b-8192", // Fast, free, and smart open-source model
+        temperature: 0.5,
+        max_tokens: 200
+      })
+    });
+
+    if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error?.message || "Groq API Error");
+    }
+
+    const data = await response.json();
+    const text = data.choices[0]?.message?.content || "No answer received.";
+
     return { text, sources: [] };
 
   } catch (error: any) {
-    console.error("Gemini API Error:", error);
-    const errorMessage = error.message || String(error);
-    
-    // If we hit the speed limit (429), we tell you nicely.
-    if (errorMessage.includes("429") || errorMessage.includes("quota")) {
-      return { 
-        text: "I am a bit busy! Please wait 1 minute and try again. (Free Tier Limit)", 
-        sources: [] 
-      };
-    }
-
+    console.error("API Error:", error);
     return { 
-      text: `(Debug Error): ${errorMessage}`, 
+      text: `Connection Error: ${error.message || "Failed to reach AI"}`, 
       sources: [] 
     };
   }
