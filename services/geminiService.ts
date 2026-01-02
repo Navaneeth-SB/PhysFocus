@@ -1,6 +1,5 @@
 import { Message, Sender, Source } from '../types';
 
-// We get the Groq key (using standard Vite env access)
 const apiKey = import.meta.env.VITE_GROQ_API_KEY;
 
 export const askPhysicsDoubt = async (
@@ -9,21 +8,18 @@ export const askPhysicsDoubt = async (
 ): Promise<{ text: string; sources: Source[] }> => {
   try {
     if (!apiKey) {
-      return { text: "Configuration Error: VITE_GROQ_API_KEY is missing in Vercel.", sources: [] };
+      return { text: "Configuration Error: VITE_GROQ_API_KEY is missing.", sources: [] };
     }
 
-    // Prepare context from previous messages
     let messages = [
         {
             role: "system",
-            content: `You are an expert Physics Tutor for competitive exams (JEE, NEET). 
+            content: `You are an expert Physics Tutor for competitive exams. 
             Provide concise, direct answers (max 2-3 sentences). 
-            Do NOT use LaTeX. Use standard symbols (e.g. *, x^2, theta). 
-            Focus strictly on physics concepts.`
+            Do NOT use LaTeX. Use standard symbols (e.g. *, x^2, theta).`
         }
     ];
 
-    // Add history (limit to last 4 to keep it fast)
     history.slice(-4).forEach(msg => {
         messages.push({
             role: msg.sender === 'user' ? "user" : "assistant",
@@ -31,10 +27,8 @@ export const askPhysicsDoubt = async (
         });
     });
 
-    // Add the current question
     messages.push({ role: "user", content: question });
 
-    // Send request to Groq (Llama 3 Model)
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -43,7 +37,8 @@ export const askPhysicsDoubt = async (
       },
       body: JSON.stringify({
         messages: messages,
-        model: "llama3-8b-8192", // Fast, free, and smart open-source model
+        // UPDATED MODEL NAME BELOW:
+        model: "llama-3.1-8b-instant", 
         temperature: 0.5,
         max_tokens: 200
       })
