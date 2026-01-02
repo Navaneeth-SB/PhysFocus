@@ -41,11 +41,15 @@ export const askPhysicsDoubt = async (
     const text = response.text || "I couldn't find an answer.";
     return { text, sources: [] };
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini API Error:", error);
+    
+    // DEBUG MODE: This prints the specific technical error to the chat
+    // So we can see if it's a 400, 403, 404, or 429.
+    const errorMessage = error.message || String(error);
+    
     return { 
-      text: "You are asking too fast! Please wait 1 minute and try again.", 
+      text: `(Debug Error): ${errorMessage}`, 
       sources: [] 
     };
   }
-};
