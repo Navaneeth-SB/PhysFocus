@@ -46,12 +46,12 @@ const App: React.FC = () => {
         <p>
           Designed & Developed by{" "}
           <a 
-            href="https://www.linkedin.com/in/your-profile-link" 
+            href="https://www.linkedin.com/in/navaneeth-shetty-b-8b7536318/" 
             target="_blank" 
             rel="noopener noreferrer"
             className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
           >
-            Your Name
+            Navaneeth Shetty B
           </a>
         </p>
       </footer>
