@@ -1,0 +1,5 @@
+{
+  "name": "PhysFocus",
+  "description": "A focused study companion for Physics competitive exam students, featuring a specialized study timer and an AI-powered doubts solver with web grounding to minimize distractions.",
+  "requestFramePermissions": []
+}
