@@ -20,7 +20,7 @@ export const askPhysicsDoubt = async (
   try {
     // FIX 2: Use a valid, stable model name. 'gemini-3' is not public yet.
     // 'gemini-2.0-flash-exp' is the current fast/free standard.
-    const model = 'gemini-2.0-flash-exp'; 
+   const model = 'gemini-1.5-flash'; 
     
     // Construct prompt with history if available
     let context = "";
