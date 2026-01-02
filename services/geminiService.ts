@@ -15,7 +15,9 @@ export const askPhysicsDoubt = async (
     // SWITCHED TO HIGH-LIMIT MODEL
     // 'gemini-1.5-flash' allows 15 requests/minute for free. 
     // The previous one (2.0-exp) allowed much less.
-    const model = 'gemini-1.5-flash'; 
+    // We are changing 'gemini-1.5-flash' to the specific stable version 'gemini-1.5-flash-001'
+    // This is the specific version that rarely gives a 404 error.
+    const model = 'gemini-1.5-flash-001';
     
     let context = "";
     if (history.length > 0) {
