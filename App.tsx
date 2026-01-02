@@ -42,6 +42,19 @@ const App: React.FC = () => {
              <h1 className="text-lg font-bold tracking-tight text-white">
                 Phys<span className="text-sky-400">Focus</span>
              </h1>
+        <footer className="w-full py-6 text-center text-slate-500 text-xs sm:text-sm mt-auto border-t border-slate-800/50">
+        <p>
+          Designed & Developed by{" "}
+          <a 
+            href="https://www.linkedin.com/in/your-profile-link" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 transition-colors font-medium"
+          >
+            Your Name
+          </a>
+        </p>
+      </footer>
           </div>
           <div className="hidden sm:block text-xs font-mono text-slate-500 border border-slate-800 px-2 py-1 rounded-md">
             VERSION 2.0
