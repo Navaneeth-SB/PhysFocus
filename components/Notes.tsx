@@ -58,13 +58,12 @@ export const Notes: React.FC = () => {
       {/* Content Area */}
       <div className="flex-1 relative overflow-hidden">
         {activeTab === 'NOTES' ? (
-          <textarea
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            placeholder="Type your study notes, formulas, or quick thoughts here..."
-            className="w-full h-full bg-transparent text-slate-200 text-sm leading-relaxed placeholder-slate-600 resize-none focus:outline-none scrollbar-hide p-1"
-            spellCheck={false}
-          />
+         <textarea
+  className="w-full h-full min-h-[300px] bg-transparent border-none outline-none resize-none text-slate-300 placeholder:text-slate-600 p-2 overflow-y-auto"
+  placeholder="Type your study notes, formulas, or quick thoughts here..."
+  value={notes}
+  onChange={(e) => setNotes(e.target.value)}
+/>
         ) : (
           <div className="flex flex-col h-full">
             <form onSubmit={handleAddTodo} className="flex gap-2 mb-4">
