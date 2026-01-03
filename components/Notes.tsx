@@ -31,7 +31,8 @@ export const Notes: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-800/50 border border-slate-700 rounded-3xl p-6 w-full h-full min-h-[350px] flex flex-col backdrop-blur-sm shadow-xl transition-all">
+    /* Changed min-h and ensured flex-col fills the parent height */
+    <div className="bg-slate-800/50 border border-slate-700 rounded-3xl p-6 w-full h-full min-h-[450px] flex flex-col backdrop-blur-sm shadow-xl transition-all">
       
       {/* Tabs */}
       <div className="flex items-center gap-6 border-b border-slate-700/50 pb-3 mb-4">
@@ -55,15 +56,17 @@ export const Notes: React.FC = () => {
         </button>
       </div>
 
-      {/* Content Area */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* Content Area - Removed overflow-hidden to allow children to manage scroll */}
+      <div className="flex-1 flex flex-col min-h-0"> 
         {activeTab === 'NOTES' ? (
-         <textarea
-  className="w-full h-full min-h-[300px] bg-transparent border-none outline-none resize-none text-slate-300 placeholder:text-slate-600 p-2 overflow-y-auto"
-  placeholder="Type your study notes, formulas, or quick thoughts here..."
-  value={notes}
-  onChange={(e) => setNotes(e.target.value)}
-/>
+          <textarea
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            placeholder="Type your study notes, formulas, or quick thoughts here..."
+            /* Added h-full and overflow-y-auto to ensure the whole box is scrollable */
+            className="w-full h-full bg-transparent text-slate-200 text-sm leading-relaxed placeholder-slate-600 resize-none focus:outline-none overflow-y-auto p-2"
+            spellCheck={false}
+          />
         ) : (
           <div className="flex flex-col h-full">
             <form onSubmit={handleAddTodo} className="flex gap-2 mb-4">
@@ -83,7 +86,7 @@ export const Notes: React.FC = () => {
               </button>
             </form>
 
-            <div className="flex-1 overflow-y-auto space-y-2 pr-2 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
               {todos.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-40 text-slate-600 gap-2 opacity-60">
                    <CheckSquare size={32} strokeWidth={1.5} />
