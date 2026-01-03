@@ -1,20 +1,24 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# PhysFocus ⚛️
+### A "Walled Garden" for Physics Students
 
-# Run and deploy your AI Studio app
+**PhysFocus** is a web-based productivity dashboard designed to eliminate the distractions of the open web during intense study sessions. It combines essential tools—a focus timer, a task manager, and a "no-fluff" AI tutor—into a single, responsive interface.
 
-This contains everything you need to run your app locally.
+## 💡 The Problem
+During my M.Sc. Physics preparation, I noticed two major friction points:
+* **Search Engine Rabbit Holes:** Looking up a simple constant often leads to distracting tabs and unrelated content.
+* **Chatty AI:** Standard LLMs often provide long-winded explanations when a student only needs a quick formula or a specific value, like the reduced Planck's constant ($\hbar$).
 
-View your app in AI Studio: https://ai.studio/apps/drive/16_7LBoac1JpbOw9-EYVXre32sI5RVGhN
+## 🚀 Features
+* **Concise AI Tutor:** Powered by **Groq (Llama 3.1)**, designed to provide direct, formula-focused answers without conversational filler.
+* **Integrated Pomodoro Timer:** Manage study and break intervals without leaving the application.
+* **Dynamic Notes & To-Do:** A central space to track topics and formulas for competitive exams like GATE, JEE, or NEET.
+* **Responsive Design:** Fully optimized for mobile, tablet, and desktop users using **Tailwind CSS**.
 
-## Run Locally
+## 🛠️ Tech Stack
+* **Prototyping:** Google AI Studio (Vibe Coding phase)
+* **Frontend:** React & Tailwind CSS
+* **LLM Orchestration:** Groq Cloud API (Llama-3.1-8b-instant)
+* **Deployment:** Vercel
 
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 👨‍🔬 About the Developer
+I am an M.Sc. Physics student at **NIT Hamirpur**. I built this project to bridge the gap between AI capability and practical academic productivity, ensuring that technology serves as a tool for focus rather than a source of distraction.
