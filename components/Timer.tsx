@@ -29,6 +29,15 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   // Settings form state
   const [tempDurations, setTempDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
 
+  // --- ALARM SYSTEM LOGIC ---
+  const playAlarm = () => {
+    // You can use any MP3 URL here. This one is a clean notification sound.
+    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+    audio.volume = 0.5;
+    audio.play().catch(e => console.error("Audio play failed:", e));
+  };
+  // ---------------------------
+
   const switchMode = (newMode: TimerMode) => {
     setIsActive(false);
     setMode(newMode);
@@ -50,6 +59,16 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
       interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0 && isActive) {
       setIsActive(false);
+      
+      // TRIGGER THE ALARM
+      playAlarm(); 
+      
+      // Optional: Visual browser alert
+      // setTimeout avoids blocking the playAlarm sound execution
+      setTimeout(() => {
+        alert(mode === TimerMode.FOCUS ? "Focus session complete! Time for a break." : "Break over! Back to focus.");
+      }, 100);
+
       onSessionComplete(mode, initialTime / 60);
     }
     return () => { if (interval) clearInterval(interval); };
@@ -57,7 +76,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   const saveSettings = () => {
     setDurations(tempDurations);
-    // Update current timer if not running
     if (!isActive) {
       const newTime = tempDurations[mode] * 60;
       setInitialTime(newTime);
@@ -79,7 +97,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  // Dimensions for mobile
   const radius = 100;
   const circumference = 2 * Math.PI * radius;
   const progress = timeLeft / initialTime;
@@ -121,8 +138,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   return (
     <div className="relative flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-3xl border border-slate-700 shadow-xl backdrop-blur-sm w-full max-w-sm mx-auto">
-      
-      {/* Mode Selectors */}
       <div className="flex justify-center gap-1 mb-6 bg-slate-900/50 p-1 rounded-full w-full max-w-[280px]">
         {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
           <button
@@ -139,7 +154,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         ))}
       </div>
 
-      {/* Timer Circle */}
       <div 
         className={`relative mb-8 transition-transform duration-200 ${!isActive ? 'cursor-pointer hover:scale-105 active:scale-95 group' : ''}`}
         onClick={handleTimerClick}
@@ -167,7 +181,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         </div>
       </div>
 
-      {/* Controls */}
       <div className="flex gap-6">
         <button onClick={toggleTimer} className={`p-4 rounded-full transition-all transform active:scale-95 shadow-lg ${
             isActive ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-900'
