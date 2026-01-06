@@ -18,6 +18,10 @@ const MODE_CONFIG = {
   [TimerMode.LONG_BREAK]: { label: 'Long', color: 'text-indigo-400', stroke: '#818cf8', icon: BatteryCharging },
 };
 
+// FIX: Define Audio outside the component so it doesn't get re-created on every render.
+// This ensures it is loaded and ready to play immediately.
+const ALARM_SOUND = new Audio('https://raw.githubusercontent.com/freeCodeCamp/cdn/master/build/testable-projects-fcc/audio/beeper-stop.mp3');
+
 export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   const [durations, setDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
   const [mode, setMode] = useState<TimerMode>(TimerMode.FOCUS);
@@ -29,14 +33,23 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   // Settings form state
   const [tempDurations, setTempDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
 
-  // --- ALARM SYSTEM LOGIC ---
+  // --- AUDIO TRIGGER FUNCTION ---
   const playAlarm = () => {
-    // You can use any MP3 URL here. This one is a clean notification sound.
-    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-    audio.volume = 0.5;
-    audio.play().catch(e => console.error("Audio play failed:", e));
+    try {
+      ALARM_SOUND.currentTime = 0; // Reset sound to start
+      ALARM_SOUND.volume = 0.5;    // Set volume (0.0 to 1.0)
+      const playPromise = ALARM_SOUND.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.error("Audio playback failed:", error);
+        });
+      }
+    } catch (err) {
+      console.error("Audio error:", err);
+    }
   };
-  // ---------------------------
+  // ------------------------------
 
   const switchMode = (newMode: TimerMode) => {
     setIsActive(false);
@@ -55,22 +68,24 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
+    
     if (isActive && timeLeft > 0) {
       interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0 && isActive) {
+      // TIMER FINISHED LOGIC
       setIsActive(false);
       
-      // TRIGGER THE ALARM
-      playAlarm(); 
-      
-      // Optional: Visual browser alert
-      // setTimeout avoids blocking the playAlarm sound execution
+      // 1. Play Sound Immediately
+      playAlarm();
+
+      // 2. Show Alert (delayed slightly so sound starts first)
       setTimeout(() => {
-        alert(mode === TimerMode.FOCUS ? "Focus session complete! Time for a break." : "Break over! Back to focus.");
+        alert(mode === TimerMode.FOCUS ? "Focus session complete!" : "Break over!");
       }, 100);
 
       onSessionComplete(mode, initialTime / 60);
     }
+    
     return () => { if (interval) clearInterval(interval); };
   }, [isActive, timeLeft, mode, initialTime, onSessionComplete]);
 
@@ -138,6 +153,8 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   return (
     <div className="relative flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-3xl border border-slate-700 shadow-xl backdrop-blur-sm w-full max-w-sm mx-auto">
+      
+      {/* Mode Selectors */}
       <div className="flex justify-center gap-1 mb-6 bg-slate-900/50 p-1 rounded-full w-full max-w-[280px]">
         {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
           <button
@@ -154,6 +171,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         ))}
       </div>
 
+      {/* Timer Display */}
       <div 
         className={`relative mb-8 transition-transform duration-200 ${!isActive ? 'cursor-pointer hover:scale-105 active:scale-95 group' : ''}`}
         onClick={handleTimerClick}
@@ -181,6 +199,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         </div>
       </div>
 
+      {/* Controls */}
       <div className="flex gap-6">
         <button onClick={toggleTimer} className={`p-4 rounded-full transition-all transform active:scale-95 shadow-lg ${
             isActive ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-900'
