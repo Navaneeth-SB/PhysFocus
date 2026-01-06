@@ -18,7 +18,8 @@ const MODE_CONFIG = {
   [TimerMode.LONG_BREAK]: { label: 'Long', color: 'text-indigo-400', stroke: '#818cf8', icon: BatteryCharging },
 };
 
-// Global audio instance to ensure it loads immediately
+// Global audio instance ensures sound is loaded immediately
+// Using a reliable GitHub-hosted beep sound
 const ALARM_SOUND = new Audio('https://raw.githubusercontent.com/freeCodeCamp/cdn/master/build/testable-projects-fcc/audio/beeper-stop.mp3');
 
 export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
@@ -36,13 +37,14 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   const playAlarm = () => {
     try {
       ALARM_SOUND.currentTime = 0; // Reset sound to start
-      ALARM_SOUND.volume = 0.5;    // Set volume
+      ALARM_SOUND.volume = 0.5;    // Set volume to 50%
+      
       const playPromise = ALARM_SOUND.play();
 
       if (playPromise !== undefined) {
         playPromise.catch((error) => {
           console.error("Audio playback failed:", error);
-          alert("Audio blocked! Please interact with the page first.");
+          // Optional: You could show a tiny toast notification here if audio fails
         });
       }
     } catch (err) {
@@ -71,10 +73,13 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
     if (isActive && timeLeft > 0) {
       interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0 && isActive) {
-      // TIMER FINISHED
+      // TIMER FINISHED LOGIC
       setIsActive(false);
-      playAlarm(); // Play sound
+      
+      // 1. Play Sound
+      playAlarm();
 
+      // 2. Show Visual Alert (delayed slightly to ensure sound starts first)
       setTimeout(() => {
         alert(mode === TimerMode.FOCUS ? "Focus session complete!" : "Break over!");
       }, 100);
@@ -136,7 +141,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
             </div>
           ))}
           
-          {/* --- NEW TEST AUDIO BUTTON --- */}
+          {/* --- NEW: TEST ALARM BUTTON --- */}
           <div className="flex items-center justify-between w-full bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 mt-4">
             <span className="text-sm text-slate-300 flex items-center gap-2">
               <Volume2 size={16} /> Test Alarm
@@ -148,10 +153,9 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
               Play Sound
             </button>
           </div>
-          {/* ----------------------------- */}
+          {/* ------------------------------- */}
 
         </div>
-
         <div className="flex gap-4 mt-8 w-full">
           <button onClick={() => setShowSettings(false)} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">
             Cancel
@@ -166,6 +170,8 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   return (
     <div className="relative flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-3xl border border-slate-700 shadow-xl backdrop-blur-sm w-full max-w-sm mx-auto">
+      
+      {/* Mode Selectors */}
       <div className="flex justify-center gap-1 mb-6 bg-slate-900/50 p-1 rounded-full w-full max-w-[280px]">
         {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
           <button
@@ -182,6 +188,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         ))}
       </div>
 
+      {/* Timer Circle */}
       <div 
         className={`relative mb-8 transition-transform duration-200 ${!isActive ? 'cursor-pointer hover:scale-105 active:scale-95 group' : ''}`}
         onClick={handleTimerClick}
@@ -209,6 +216,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         </div>
       </div>
 
+      {/* Controls */}
       <div className="flex gap-6">
         <button onClick={toggleTimer} className={`p-4 rounded-full transition-all transform active:scale-95 shadow-lg ${
             isActive ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-900'
