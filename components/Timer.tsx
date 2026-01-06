@@ -29,24 +29,26 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   // Settings form state
   const [tempDurations, setTempDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
 
-  // --- NEW AUDIO TRIGGER FUNCTION (Bulletproof Version) ---
+  // --- NEW: REAL ALARM SYSTEM ---
   const playAlarm = () => {
-    // We create the audio object HERE, inside the click handler.
-    // This ensures it is tied directly to the user interaction.
-    // Using a highly reliable URL (Google's assets).
-    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
-    
+    // 1. Use a longer "Digital Watch" alarm sound
+    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg');
     audio.volume = 0.5;
-    
+    audio.loop = true; // 2. Make it LOOP continuously
+
     const playPromise = audio.play();
 
     if (playPromise !== undefined) {
       playPromise.catch((error) => {
         console.error("Audio playback failed:", error);
-        alert("Audio failed to play. Check your internet connection or browser permissions.");
+        alert("Audio failed. Please interact with the page first.");
       });
     }
+
+    // 3. Return the audio object so we can stop it later
+    return audio;
   };
+  // ------------------------------
 
   const switchMode = (newMode: TimerMode) => {
     setIsActive(false);
@@ -72,13 +74,21 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
       // TIMER FINISHED LOGIC
       setIsActive(false);
       
-      // 1. Play Sound
-      playAlarm();
+      // 1. Start the looping alarm
+      const currentAudio = playAlarm();
 
-      // 2. Show Visual Alert
+      // 2. Show the Alert
+      // The Alert pauses code execution in most browsers until you click "OK".
+      // We wrap it in a small timeout to ensure the sound starts playing first.
       setTimeout(() => {
-        alert(mode === TimerMode.FOCUS ? "Focus session complete!" : "Break over!");
-      }, 200);
+        alert(mode === TimerMode.FOCUS ? "Focus session complete! Take a break." : "Break over! Time to focus.");
+        
+        // 3. STOP THE ALARM immediately after user clicks "OK"
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio.currentTime = 0; // Reset sound
+        }
+      }, 100);
 
       onSessionComplete(mode, initialTime / 60);
     }
@@ -102,6 +112,13 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
       setShowSettings(true);
     }
   };
+
+  const testAudio = () => {
+      // For the test button, we don't want it to loop forever, just play once.
+      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg');
+      audio.volume = 0.5;
+      audio.play().catch(e => console.error(e));
+  }
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
@@ -140,10 +157,10 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
           {/* --- TEST ALARM BUTTON --- */}
           <div className="flex items-center justify-between w-full bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 mt-4">
             <span className="text-sm text-slate-300 flex items-center gap-2">
-              <Volume2 size={16} /> Test Alarm
+              <Volume2 size={16} /> Test Ringtone
             </span>
             <button 
-              onClick={playAlarm}
+              onClick={testAudio}
               className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-slate-600 hover:border-slate-500 active:scale-95"
             >
               Play Sound
