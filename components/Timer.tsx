@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TimerMode, TimerDurations } from '../types';
-import { Play, Pause, RotateCcw, Coffee, Brain, BatteryCharging, Settings, Check, Volume2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, Brain, BatteryCharging, Settings, Check, Volume2, Activity, Waves } from 'lucide-react';
 
 interface TimerProps {
   onSessionComplete: (mode: TimerMode, duration: number) => void;
@@ -25,30 +25,135 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   const [initialTime, setInitialTime] = useState(DEFAULT_DURATIONS[TimerMode.FOCUS] * 60);
   const [isActive, setIsActive] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  
-  // Settings form state
   const [tempDurations, setTempDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
 
-  // --- NEW: REAL ALARM SYSTEM ---
-  const playAlarm = () => {
-    // 1. Use a longer "Digital Watch" alarm sound
-    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg');
-    audio.volume = 0.5;
-    audio.loop = true; // 2. Make it LOOP continuously
+  // --- SOUND STATE ---
+  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [soundType, setSoundType] = useState<'GAMMA' | 'BROWN'>('BROWN');
+  const [volume, setVolume] = useState(0.15);
+  
+  // Refs for Web Audio API
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorRef = useRef<OscillatorNode | null>(null);
+  const noiseNodeRef = useRef<AudioBufferSourceNode | null>(null);
+  const gainNodeRef = useRef<GainNode | null>(null);
 
-    const playPromise = audio.play();
+  // --- AUDIO ENGINE ---
+  useEffect(() => {
+    // Only play if active AND focus mode AND enabled
+    if (soundEnabled && isActive && mode === TimerMode.FOCUS) {
+      startSound();
+    } else {
+      stopSound();
+    }
+    // Cleanup on unmount
+    return () => stopSound();
+  }, [soundEnabled, isActive, mode, soundType]);
 
-    if (playPromise !== undefined) {
-      playPromise.catch((error) => {
-        console.error("Audio playback failed:", error);
-        alert("Audio failed. Please interact with the page first.");
-      });
+  // Handle Volume Changes Live
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.setTargetAtTime(volume, audioContextRef.current?.currentTime || 0, 0.1);
+    }
+  }, [volume]);
+
+  const startSound = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    const ctx = audioContextRef.current;
+    
+    // Resume context if suspended (browser policy)
+    if (ctx.state === 'suspended') {
+      ctx.resume();
     }
 
-    // 3. Return the audio object so we can stop it later
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = volume;
+    masterGain.connect(ctx.destination);
+    gainNodeRef.current = masterGain;
+
+    if (soundType === 'GAMMA') {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(40, ctx.currentTime);
+      osc.connect(masterGain);
+      osc.start();
+      oscillatorRef.current = osc;
+    } else if (soundType === 'BROWN') {
+      const bufferSize = 2 * ctx.sampleRate;
+      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = buffer.getChannelData(0);
+      let lastOut = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        output[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = output[i];
+        output[i] *= 3.5;
+      }
+      const noise = ctx.createBufferSource();
+      noise.buffer = buffer;
+      noise.loop = true;
+      noise.connect(masterGain);
+      noise.start();
+      noiseNodeRef.current = noise;
+    }
+  };
+
+  const stopSound = () => {
+    if (oscillatorRef.current) {
+      try { oscillatorRef.current.stop(); } catch(e) {}
+      oscillatorRef.current.disconnect();
+      oscillatorRef.current = null;
+    }
+    if (noiseNodeRef.current) {
+      try { noiseNodeRef.current.stop(); } catch(e) {}
+      noiseNodeRef.current.disconnect();
+      noiseNodeRef.current = null;
+    }
+  };
+
+  // --- ALARM LOGIC ---
+  const playAlarm = () => {
+    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg');
+    audio.volume = 0.5;
+    audio.loop = true;
+    audio.play().catch(e => console.error(e));
     return audio;
   };
-  // ------------------------------
+
+  // --- TIMER LOGIC ---
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (isActive && timeLeft > 0) {
+      interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
+    } else if (timeLeft === 0 && isActive) {
+      // 1. STOP FOCUS SOUND INSTANTLY
+      stopSound();
+      
+      // 2. Stop Timer
+      setIsActive(false);
+      
+      // 3. Play Alarm
+      const currentAudio = playAlarm();
+
+      // 4. Show Alert
+      setTimeout(() => {
+        alert(mode === TimerMode.FOCUS ? "Focus session complete!" : "Break over!");
+        // Stop Alarm when alert is closed
+        if (currentAudio) { 
+          currentAudio.pause(); 
+          currentAudio.currentTime = 0; 
+        }
+      }, 100);
+
+      onSessionComplete(mode, initialTime / 60);
+    }
+    
+    return () => { if (interval) clearInterval(interval); };
+  }, [isActive, timeLeft, mode, initialTime, onSessionComplete]);
+
 
   const switchMode = (newMode: TimerMode) => {
     setIsActive(false);
@@ -59,43 +164,8 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   };
 
   const toggleTimer = () => setIsActive(!isActive);
-
-  const resetTimer = () => {
-    setIsActive(false);
-    setTimeLeft(initialTime);
-  };
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
-    } else if (timeLeft === 0 && isActive) {
-      // TIMER FINISHED LOGIC
-      setIsActive(false);
-      
-      // 1. Start the looping alarm
-      const currentAudio = playAlarm();
-
-      // 2. Show the Alert
-      // The Alert pauses code execution in most browsers until you click "OK".
-      // We wrap it in a small timeout to ensure the sound starts playing first.
-      setTimeout(() => {
-        alert(mode === TimerMode.FOCUS ? "Focus session complete! Take a break." : "Break over! Time to focus.");
-        
-        // 3. STOP THE ALARM immediately after user clicks "OK"
-        if (currentAudio) {
-          currentAudio.pause();
-          currentAudio.currentTime = 0; // Reset sound
-        }
-      }, 100);
-
-      onSessionComplete(mode, initialTime / 60);
-    }
-    
-    return () => { if (interval) clearInterval(interval); };
-  }, [isActive, timeLeft, mode, initialTime, onSessionComplete]);
-
+  const resetTimer = () => { setIsActive(false); setTimeLeft(initialTime); };
+  
   const saveSettings = () => {
     setDurations(tempDurations);
     if (!isActive) {
@@ -106,20 +176,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
     setShowSettings(false);
   };
 
-  const handleTimerClick = () => {
-    if (!isActive) {
-      setTempDurations(durations);
-      setShowSettings(true);
-    }
-  };
-
-  const testAudio = () => {
-      // For the test button, we don't want it to loop forever, just play once.
-      const audio = new Audio('https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.error(e));
-  }
-
+  const handleTimerClick = () => { if (!isActive) { setTempDurations(durations); setShowSettings(true); } };
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -138,44 +195,51 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
           <Settings size={20} /> Timer Settings
         </h3>
-        
         <div className="space-y-4 w-full">
           {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
             <div key={m} className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">{MODE_CONFIG[m].label} Duration (min)</label>
-              <input 
-                type="number" 
-                min="1"
-                max="120"
-                value={tempDurations[m]}
+              <input type="number" min="1" max="120" value={tempDurations[m]}
                 onChange={(e) => setTempDurations({...tempDurations, [m]: parseInt(e.target.value) || 1})}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500"
               />
             </div>
           ))}
           
-          {/* --- TEST ALARM BUTTON --- */}
-          <div className="flex items-center justify-between w-full bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 mt-4">
-            <span className="text-sm text-slate-300 flex items-center gap-2">
-              <Volume2 size={16} /> Test Ringtone
-            </span>
-            <button 
-              onClick={testAudio}
-              className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-slate-600 hover:border-slate-500 active:scale-95"
-            >
-              Play Sound
-            </button>
-          </div>
-          {/* ------------------------- */}
+          <div className="pt-4 border-t border-slate-700/50">
+             <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3 block flex items-center gap-2">
+                <Waves size={14} /> Focus Sound
+             </label>
+             
+             <div className="flex bg-slate-900 p-1 rounded-xl mb-3">
+                <button 
+                  onClick={() => setSoundType('BROWN')}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${soundType === 'BROWN' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Brown Noise
+                </button>
+                <button 
+                  onClick={() => setSoundType('GAMMA')}
+                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${soundType === 'GAMMA' ? 'bg-slate-700 text-sky-400' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  Gamma
+                </button>
+             </div>
 
+             <div className="flex items-center gap-3">
+                <Volume2 size={16} className="text-slate-400" />
+                <input 
+                  type="range" min="0" max="1" step="0.01" 
+                  value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                />
+             </div>
+          </div>
         </div>
+
         <div className="flex gap-4 mt-8 w-full">
-          <button onClick={() => setShowSettings(false)} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">
-            Cancel
-          </button>
-          <button onClick={saveSettings} className="flex-1 py-3 rounded-xl bg-sky-600 text-white hover:bg-sky-500 transition-colors flex items-center justify-center gap-2">
-            <Check size={18} /> Save
-          </button>
+          <button onClick={() => setShowSettings(false)} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">Cancel</button>
+          <button onClick={saveSettings} className="flex-1 py-3 rounded-xl bg-sky-600 text-white hover:bg-sky-500 transition-colors flex items-center justify-center gap-2"><Check size={18} /> Save</button>
         </div>
       </div>
     );
@@ -183,60 +247,49 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   return (
     <div className="relative flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-3xl border border-slate-700 shadow-xl backdrop-blur-sm w-full max-w-sm mx-auto">
-      
-      {/* Mode Selectors */}
       <div className="flex justify-center gap-1 mb-6 bg-slate-900/50 p-1 rounded-full w-full max-w-[280px]">
         {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
-          <button
-            key={m}
-            onClick={() => switchMode(m)}
-            className={`flex-1 py-2 rounded-full text-xs font-bold transition-all ${
-              mode === m 
-                ? 'bg-slate-700 text-white shadow-md' 
-                : 'text-slate-500 hover:text-slate-300'
-            }`}
-          >
+          <button key={m} onClick={() => switchMode(m)} className={`flex-1 py-2 rounded-full text-xs font-bold transition-all ${mode === m ? 'bg-slate-700 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}>
             {MODE_CONFIG[m].label}
           </button>
         ))}
       </div>
 
-      {/* Timer Circle */}
-      <div 
-        className={`relative mb-8 transition-transform duration-200 ${!isActive ? 'cursor-pointer hover:scale-105 active:scale-95 group' : ''}`}
-        onClick={handleTimerClick}
-      >
+      <div className={`relative mb-8 transition-transform duration-200 ${!isActive ? 'cursor-pointer hover:scale-105 active:scale-95 group' : ''}`} onClick={handleTimerClick}>
         <svg className="transform -rotate-90 w-60 h-60 sm:w-72 sm:h-72">
           <circle cx="50%" cy="50%" r={radius} stroke="currentColor" strokeWidth="8" fill="transparent" className="text-slate-800" />
-          <circle cx="50%" cy="50%" r={radius} stroke={MODE_CONFIG[mode].stroke} strokeWidth="8" fill="transparent"
-            strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round"
-            className="transition-all duration-1000 ease-linear"
-          />
+          <circle cx="50%" cy="50%" r={radius} stroke={MODE_CONFIG[mode].stroke} strokeWidth="8" fill="transparent" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" className="transition-all duration-1000 ease-linear" />
         </svg>
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-          <div className={`text-5xl sm:text-6xl font-mono font-bold tracking-tighter ${MODE_CONFIG[mode].color}`}>
-            {formatTime(timeLeft)}
-          </div>
+          <div className={`text-5xl sm:text-6xl font-mono font-bold tracking-tighter ${MODE_CONFIG[mode].color}`}>{formatTime(timeLeft)}</div>
           <div className="flex flex-col items-center justify-center mt-2 text-slate-400">
              <div className="flex items-center">
                 <CurrentIcon size={18} className="mr-1.5" />
                 <span className="uppercase tracking-widest text-[10px] sm:text-xs font-semibold">{MODE_CONFIG[mode].label}</span>
              </div>
-             {!isActive && (
-               <span className="text-[10px] text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Tap to edit</span>
+             {soundEnabled && mode === TimerMode.FOCUS && isActive && (
+               <div className="flex items-center gap-1 mt-1 text-emerald-400 animate-pulse">
+                 <Activity size={10} /> <span className="text-[10px] font-bold">{soundType === 'GAMMA' ? '40Hz' : 'NOISE'} ON</span>
+               </div>
              )}
+             {!isActive && <span className="text-[10px] text-slate-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">Tap to edit</span>}
           </div>
         </div>
       </div>
 
-      {/* Controls */}
-      <div className="flex gap-6">
-        <button onClick={toggleTimer} className={`p-4 rounded-full transition-all transform active:scale-95 shadow-lg ${
-            isActive ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-900'
-          }`}
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={() => setSoundEnabled(!soundEnabled)} 
+          className={`p-3 rounded-full transition-all border ${soundEnabled ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}
+          title="Toggle Focus Sound"
         >
+          {soundEnabled ? <Waves size={20} /> : <Volume2 size={20} />}
+        </button>
+
+        <button onClick={toggleTimer} className={`p-4 rounded-full transition-all transform active:scale-95 shadow-lg ${isActive ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-900'}`}>
           {isActive ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
         </button>
+        
         <button onClick={resetTimer} className="p-4 rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 transition-all transform active:scale-95 shadow-lg">
           <RotateCcw size={28} />
         </button>
