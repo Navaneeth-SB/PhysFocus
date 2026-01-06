@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TimerMode, TimerDurations } from '../types';
-import { Play, Pause, RotateCcw, Coffee, Brain, BatteryCharging, Settings, Check } from 'lucide-react';
+import { Play, Pause, RotateCcw, Coffee, Brain, BatteryCharging, Settings, Check, Volume2 } from 'lucide-react';
 
 interface TimerProps {
   onSessionComplete: (mode: TimerMode, duration: number) => void;
@@ -18,8 +18,7 @@ const MODE_CONFIG = {
   [TimerMode.LONG_BREAK]: { label: 'Long', color: 'text-indigo-400', stroke: '#818cf8', icon: BatteryCharging },
 };
 
-// FIX: Define Audio outside the component so it doesn't get re-created on every render.
-// This ensures it is loaded and ready to play immediately.
+// Global audio instance to ensure it loads immediately
 const ALARM_SOUND = new Audio('https://raw.githubusercontent.com/freeCodeCamp/cdn/master/build/testable-projects-fcc/audio/beeper-stop.mp3');
 
 export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
@@ -37,19 +36,19 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   const playAlarm = () => {
     try {
       ALARM_SOUND.currentTime = 0; // Reset sound to start
-      ALARM_SOUND.volume = 0.5;    // Set volume (0.0 to 1.0)
+      ALARM_SOUND.volume = 0.5;    // Set volume
       const playPromise = ALARM_SOUND.play();
 
       if (playPromise !== undefined) {
         playPromise.catch((error) => {
           console.error("Audio playback failed:", error);
+          alert("Audio blocked! Please interact with the page first.");
         });
       }
     } catch (err) {
       console.error("Audio error:", err);
     }
   };
-  // ------------------------------
 
   const switchMode = (newMode: TimerMode) => {
     setIsActive(false);
@@ -72,13 +71,10 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
     if (isActive && timeLeft > 0) {
       interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0 && isActive) {
-      // TIMER FINISHED LOGIC
+      // TIMER FINISHED
       setIsActive(false);
-      
-      // 1. Play Sound Immediately
-      playAlarm();
+      playAlarm(); // Play sound
 
-      // 2. Show Alert (delayed slightly so sound starts first)
       setTimeout(() => {
         alert(mode === TimerMode.FOCUS ? "Focus session complete!" : "Break over!");
       }, 100);
@@ -124,6 +120,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
           <Settings size={20} /> Timer Settings
         </h3>
+        
         <div className="space-y-4 w-full">
           {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
             <div key={m} className="flex flex-col gap-1">
@@ -138,7 +135,23 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
               />
             </div>
           ))}
+          
+          {/* --- NEW TEST AUDIO BUTTON --- */}
+          <div className="flex items-center justify-between w-full bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 mt-4">
+            <span className="text-sm text-slate-300 flex items-center gap-2">
+              <Volume2 size={16} /> Test Alarm
+            </span>
+            <button 
+              onClick={playAlarm}
+              className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-slate-600 hover:border-slate-500"
+            >
+              Play Sound
+            </button>
+          </div>
+          {/* ----------------------------- */}
+
         </div>
+
         <div className="flex gap-4 mt-8 w-full">
           <button onClick={() => setShowSettings(false)} className="flex-1 py-3 rounded-xl bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors">
             Cancel
@@ -153,8 +166,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   return (
     <div className="relative flex flex-col items-center justify-center p-6 bg-slate-800/50 rounded-3xl border border-slate-700 shadow-xl backdrop-blur-sm w-full max-w-sm mx-auto">
-      
-      {/* Mode Selectors */}
       <div className="flex justify-center gap-1 mb-6 bg-slate-900/50 p-1 rounded-full w-full max-w-[280px]">
         {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
           <button
@@ -171,7 +182,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         ))}
       </div>
 
-      {/* Timer Display */}
       <div 
         className={`relative mb-8 transition-transform duration-200 ${!isActive ? 'cursor-pointer hover:scale-105 active:scale-95 group' : ''}`}
         onClick={handleTimerClick}
@@ -199,7 +209,6 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
         </div>
       </div>
 
-      {/* Controls */}
       <div className="flex gap-6">
         <button onClick={toggleTimer} className={`p-4 rounded-full transition-all transform active:scale-95 shadow-lg ${
             isActive ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-900'
