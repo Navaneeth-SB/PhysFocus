@@ -40,17 +40,14 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
 
   // --- AUDIO ENGINE ---
   useEffect(() => {
-    // Only play if active AND focus mode AND enabled
     if (soundEnabled && isActive && mode === TimerMode.FOCUS) {
       startSound();
     } else {
       stopSound();
     }
-    // Cleanup on unmount
     return () => stopSound();
   }, [soundEnabled, isActive, mode, soundType]);
 
-  // Handle Volume Changes Live
   useEffect(() => {
     if (gainNodeRef.current) {
       gainNodeRef.current.gain.setTargetAtTime(volume, audioContextRef.current?.currentTime || 0, 0.1);
@@ -62,11 +59,7 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
     const ctx = audioContextRef.current;
-    
-    // Resume context if suspended (browser policy)
-    if (ctx.state === 'suspended') {
-      ctx.resume();
-    }
+    if (ctx.state === 'suspended') ctx.resume();
 
     const masterGain = ctx.createGain();
     masterGain.gain.value = volume;
@@ -122,38 +115,22 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
     return audio;
   };
 
-  // --- TIMER LOGIC ---
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
-    
     if (isActive && timeLeft > 0) {
       interval = setInterval(() => setTimeLeft((prev) => prev - 1), 1000);
     } else if (timeLeft === 0 && isActive) {
-      // 1. STOP FOCUS SOUND INSTANTLY
       stopSound();
-      
-      // 2. Stop Timer
       setIsActive(false);
-      
-      // 3. Play Alarm
       const currentAudio = playAlarm();
-
-      // 4. Show Alert
       setTimeout(() => {
         alert(mode === TimerMode.FOCUS ? "Focus session complete!" : "Break over!");
-        // Stop Alarm when alert is closed
-        if (currentAudio) { 
-          currentAudio.pause(); 
-          currentAudio.currentTime = 0; 
-        }
+        if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
       }, 100);
-
       onSessionComplete(mode, initialTime / 60);
     }
-    
     return () => { if (interval) clearInterval(interval); };
   }, [isActive, timeLeft, mode, initialTime, onSessionComplete]);
-
 
   const switchMode = (newMode: TimerMode) => {
     setIsActive(false);
@@ -167,9 +144,17 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   const resetTimer = () => { setIsActive(false); setTimeLeft(initialTime); };
   
   const saveSettings = () => {
-    setDurations(tempDurations);
+    // Validate before saving: Ensure no 0 or empty values
+    const cleanDurations = { ...tempDurations };
+    (Object.keys(cleanDurations) as TimerMode[]).forEach(key => {
+        if (!cleanDurations[key] || cleanDurations[key] < 1) {
+            cleanDurations[key] = DEFAULT_DURATIONS[key]; // Reset invalid to default
+        }
+    });
+
+    setDurations(cleanDurations);
     if (!isActive) {
-      const newTime = tempDurations[mode] * 60;
+      const newTime = cleanDurations[mode] * 60;
       setInitialTime(newTime);
       setTimeLeft(newTime);
     }
@@ -196,11 +181,27 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
           <Settings size={20} /> Timer Settings
         </h3>
         <div className="space-y-4 w-full">
+          {/* FIX: Improved Inputs for easy typing */}
           {(Object.keys(MODE_CONFIG) as TimerMode[]).map((m) => (
             <div key={m} className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">{MODE_CONFIG[m].label} Duration (min)</label>
-              <input type="number" min="1" max="120" value={tempDurations[m]}
-                onChange={(e) => setTempDurations({...tempDurations, [m]: parseInt(e.target.value) || 1})}
+              <input 
+                type="number" 
+                min="1" 
+                max="120"
+                // FIX 1: If value is 0 (deleted), render empty string so user sees blank box
+                value={tempDurations[m] === 0 ? '' : tempDurations[m]}
+                onChange={(e) => {
+                   // FIX 2: Allow empty input (NaN) to become 0 temporarily
+                   const val = parseInt(e.target.value);
+                   setTempDurations({...tempDurations, [m]: isNaN(val) ? 0 : val});
+                }}
+                // FIX 3: When clicking away, if empty/0, snap back to 1
+                onBlur={() => {
+                    if (tempDurations[m] < 1) {
+                        setTempDurations({...tempDurations, [m]: 1});
+                    }
+                }}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-white focus:outline-none focus:border-sky-500"
               />
             </div>
@@ -210,29 +211,13 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
              <label className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3 block flex items-center gap-2">
                 <Waves size={14} /> Focus Sound
              </label>
-             
              <div className="flex bg-slate-900 p-1 rounded-xl mb-3">
-                <button 
-                  onClick={() => setSoundType('BROWN')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${soundType === 'BROWN' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  Brown Noise
-                </button>
-                <button 
-                  onClick={() => setSoundType('GAMMA')}
-                  className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${soundType === 'GAMMA' ? 'bg-slate-700 text-sky-400' : 'text-slate-500 hover:text-slate-300'}`}
-                >
-                  Gamma
-                </button>
+                <button onClick={() => setSoundType('BROWN')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${soundType === 'BROWN' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}>Brown Noise</button>
+                <button onClick={() => setSoundType('GAMMA')} className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${soundType === 'GAMMA' ? 'bg-slate-700 text-sky-400' : 'text-slate-500 hover:text-slate-300'}`}>Gamma</button>
              </div>
-
              <div className="flex items-center gap-3">
                 <Volume2 size={16} className="text-slate-400" />
-                <input 
-                  type="range" min="0" max="1" step="0.01" 
-                  value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))}
-                  className="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-                />
+                <input type="range" min="0" max="1" step="0.01" value={volume} onChange={(e) => setVolume(parseFloat(e.target.value))} className="w-full accent-sky-500 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer" />
              </div>
           </div>
         </div>
@@ -278,18 +263,12 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
       </div>
 
       <div className="flex items-center gap-4">
-        <button 
-          onClick={() => setSoundEnabled(!soundEnabled)} 
-          className={`p-3 rounded-full transition-all border ${soundEnabled ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`}
-          title="Toggle Focus Sound"
-        >
+        <button onClick={() => setSoundEnabled(!soundEnabled)} className={`p-3 rounded-full transition-all border ${soundEnabled ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'}`} title="Toggle Focus Sound">
           {soundEnabled ? <Waves size={20} /> : <Volume2 size={20} />}
         </button>
-
         <button onClick={toggleTimer} className={`p-4 rounded-full transition-all transform active:scale-95 shadow-lg ${isActive ? 'bg-slate-700 text-slate-200' : 'bg-white text-slate-900'}`}>
           {isActive ? <Pause size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" className="ml-1" />}
         </button>
-        
         <button onClick={resetTimer} className="p-4 rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 transition-all transform active:scale-95 shadow-lg">
           <RotateCcw size={28} />
         </button>
