@@ -18,10 +18,6 @@ const MODE_CONFIG = {
   [TimerMode.LONG_BREAK]: { label: 'Long', color: 'text-indigo-400', stroke: '#818cf8', icon: BatteryCharging },
 };
 
-// Global audio instance ensures sound is loaded immediately
-// Using a reliable GitHub-hosted beep sound
-const ALARM_SOUND = new Audio('https://raw.githubusercontent.com/freeCodeCamp/cdn/master/build/testable-projects-fcc/audio/beeper-stop.mp3');
-
 export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   const [durations, setDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
   const [mode, setMode] = useState<TimerMode>(TimerMode.FOCUS);
@@ -33,22 +29,22 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
   // Settings form state
   const [tempDurations, setTempDurations] = useState<TimerDurations>(DEFAULT_DURATIONS);
 
-  // --- AUDIO TRIGGER FUNCTION ---
+  // --- NEW AUDIO TRIGGER FUNCTION (Bulletproof Version) ---
   const playAlarm = () => {
-    try {
-      ALARM_SOUND.currentTime = 0; // Reset sound to start
-      ALARM_SOUND.volume = 0.5;    // Set volume to 50%
-      
-      const playPromise = ALARM_SOUND.play();
+    // We create the audio object HERE, inside the click handler.
+    // This ensures it is tied directly to the user interaction.
+    // Using a highly reliable URL (Google's assets).
+    const audio = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+    
+    audio.volume = 0.5;
+    
+    const playPromise = audio.play();
 
-      if (playPromise !== undefined) {
-        playPromise.catch((error) => {
-          console.error("Audio playback failed:", error);
-          // Optional: You could show a tiny toast notification here if audio fails
-        });
-      }
-    } catch (err) {
-      console.error("Audio error:", err);
+    if (playPromise !== undefined) {
+      playPromise.catch((error) => {
+        console.error("Audio playback failed:", error);
+        alert("Audio failed to play. Check your internet connection or browser permissions.");
+      });
     }
   };
 
@@ -79,10 +75,10 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
       // 1. Play Sound
       playAlarm();
 
-      // 2. Show Visual Alert (delayed slightly to ensure sound starts first)
+      // 2. Show Visual Alert
       setTimeout(() => {
         alert(mode === TimerMode.FOCUS ? "Focus session complete!" : "Break over!");
-      }, 100);
+      }, 200);
 
       onSessionComplete(mode, initialTime / 60);
     }
@@ -141,19 +137,19 @@ export const Timer: React.FC<TimerProps> = ({ onSessionComplete }) => {
             </div>
           ))}
           
-          {/* --- NEW: TEST ALARM BUTTON --- */}
+          {/* --- TEST ALARM BUTTON --- */}
           <div className="flex items-center justify-between w-full bg-slate-900/50 p-3 rounded-xl border border-slate-700/50 mt-4">
             <span className="text-sm text-slate-300 flex items-center gap-2">
               <Volume2 size={16} /> Test Alarm
             </span>
             <button 
               onClick={playAlarm}
-              className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-slate-600 hover:border-slate-500"
+              className="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors border border-slate-600 hover:border-slate-500 active:scale-95"
             >
               Play Sound
             </button>
           </div>
-          {/* ------------------------------- */}
+          {/* ------------------------- */}
 
         </div>
         <div className="flex gap-4 mt-8 w-full">
